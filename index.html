@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SharePoint Contract File Search</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:14px;color:#1a1a1a;background:#f5f5f3;padding:24px}
+h1{font-size:18px;font-weight:500;margin-bottom:4px}
+.subtitle{color:#666;font-size:13px;margin-bottom:24px}
+.card{background:#fff;border:0.5px solid #ddd;border-radius:12px;padding:20px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+label{display:block;font-size:13px;color:#555;margin-bottom:4px}
+input[type=text],textarea{width:100%;border:0.5px solid #ccc;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
+input[type=text]:focus,textarea:focus{border-color:#5b5ea6;box-shadow:0 0 0 2px rgba(91,94,166,0.15)}
+textarea{resize:vertical;min-height:60px}
+.site-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.site-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:0.5px solid #e0e0e0;border-radius:8px;cursor:pointer;background:#fafafa}
+.site-item:hover{background:#f0f0ff;border-color:#9fa2d3}
+.site-item input{margin-top:2px;cursor:pointer;accent-color:#5b5ea6}
+.site-label{font-size:12px;line-height:1.4}
+.site-name{font-weight:500;color:#1a1a1a}
+.site-url{color:#888;font-size:11px;word-break:break-all}
+.btn{padding:9px 18px;border-radius:8px;border:0.5px solid #ccc;background:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:background 0.15s,transform 0.1s}
+.btn:hover{background:#f0f0f0}
+.btn:active{transform:scale(0.98)}
+.btn-primary{background:#5b5ea6;color:#fff;border-color:#5b5ea6}
+.btn-primary:hover{background:#4a4d8f}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tab-bar{display:flex;gap:2px;border-bottom:1px solid #ddd;margin-bottom:16px}
+.tab{padding:7px 14px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:#5b5ea6;border-bottom-color:#5b5ea6;font-weight:500}
+.panel{display:none}.panel.active{display:block}
+.json-box{background:#f7f7f9;border:0.5px solid #ddd;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;margin-bottom:10px}
+.result-table{width:100%;border-collapse:collapse;font-size:12px}
+.result-table th{background:#f0f0f5;text-align:left;padding:7px 10px;border:1px solid #ddd;font-weight:500;position:sticky;top:0}
+.result-table td{padding:6px 10px;border:1px solid #ddd;vertical-align:top}
+.result-table tr:nth-child(even){background:#fafafa}
+.result-table tr:hover{background:#f0f0ff}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-item{background:#E6F1FB;color:#185FA5}
+.badge-page{background:#EAF3DE;color:#3B6D11}
+.badge-file{background:#F1EFE8;color:#5F5E5A}
+.notice{padding:10px 12px;border-radius:8px;font-size:12px;margin-bottom:12px}
+.notice-info{background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4}
+.notice-success{background:#EAF3DE;color:#27500A;border:0.5px solid #C0DD97}
+.notice-warn{background:#FAEEDA;color:#633806;border:0.5px solid #FAC775}
+.table-wrap{max-height:360px;overflow-y:auto;border-radius:8px;border:0.5px solid #ddd}
+.pagination{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#666}
+.copy-notice{font-size:12px;color:#27500A;margin-left:8px;opacity:0;transition:opacity 0.3s}
+.copy-notice.show{opacity:1}
+.all-select{display:flex;gap:12px;margin-bottom:10px;font-size:12px}
+.all-select a{color:#5b5ea6;cursor:pointer;text-decoration:underline}
+#paste-area{min-height:90px;font-family:monospace;font-size:11px}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#5b5ea6;color:#fff;font-size:11px;font-weight:500;flex-shrink:0}
+.export-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>OALM/DDO SharePoint Contract File Search Tool</h1>
+<p class="subtitle">Build a Graph API query, paste results, and export to Excel-ready HTML &nbsp;|&nbsp; Questions? <a href="mailto:virginia.myrick@nih.gov">Contact Virginia Myrick</a></p>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('build')">1 · Build query</button>
+  <button class="tab" onclick="switchTab('results')">2 · Process results</button>
+  <button class="tab" onclick="switchTab('output')">3 · Output</button>
+</div>
+
+<div id="panel-build" class="panel active">
+
+  <div class="card">
+    <h2><span class="step-num">1</span> Search keywords</h2>
+    <label>Contract number(s) or keywords — one per line (treated as OR)</label>
+    <textarea id="keywords" placeholder="75N98023D00048&#10;MITRE&#10;75FCMC23D0004" rows="4"></textarea>
+    <div style="margin-top:10px">
+      <label>Combine keywords with</label>
+      <div style="display:flex;gap:16px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin:0">
+          <input type="radio" name="op" value="OR" checked> OR (any keyword)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin:0">
+          <input type="radio" name="op" value="AND"> AND (all keywords)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> SharePoint sites to search</h2>
+    <div class="notice notice-warn" style="margin-bottom:10px">
+      <strong>⚠️ Access note:</strong> Graph API only returns results from sites you have been granted access to. If you select a site you cannot access, it will silently return no results for that location — not an error. Contact your SharePoint site administrator if you need access to additional sites.
+    </div>
+    <div class="all-select">
+      <a onclick="setAll(true)">Select all</a>
+      <a onclick="setAll(false)">Deselect all</a>
+    </div>
+    <div class="site-grid" id="site-grid"></div>
+    <div style="margin-top:12px">
+      <label>Additional site URL (optional — paste full base URL)</label>
+      <input type="text" id="custom-site" placeholder="https://nih.sharepoint.com/sites/YOUR-SITE">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> Result size</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <label style="margin:0">Max results:</label>
+      <input type="text" id="size" value="500" style="width:70px">
+      <span style="font-size:12px;color:#888">(max 500 per query — use pagination for more)</span>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="buildQuery()">Generate query JSON</button>
+  </div>
+
+  <div id="query-output" style="display:none;margin-top:16px">
+    <div class="card">
+      <h2>Generated query body</h2>
+      <div class="notice notice-info">Copy this JSON and paste it into the <strong>Request Body</strong> in <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank">Graph Explorer</a>, then run the query.</div>
+      <div class="json-box" id="json-display"></div>
+      <div style="display:flex;align-items:center">
+        <button class="btn btn-sm" onclick="copyJSON()">Copy JSON</button>
+        <span class="copy-notice" id="copy-notice">Copied!</span>
+        <button class="btn btn-sm" style="margin-left:8px" onclick="switchTab('results')">Next: paste results →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-results" class="panel">
+  <div class="card">
+    <h2>Paste or upload Graph API response</h2>
+    <div class="notice notice-info">
+      <strong>Graph Explorer setup (required each time):</strong><br><br>
+      1. Open <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank">Graph Explorer</a> and sign in with your NIH account.<br>
+      2. Change the method dropdown from <strong>GET</strong> to <strong>POST</strong>.<br>
+      3. Set the URL to: <code style="background:#dde;padding:1px 5px;border-radius:3px;font-size:11px">https://graph.microsoft.com/v1.0/search/microsoft.graph.query</code><br>
+      4. Click the <strong>Request body</strong> tab, paste the query JSON from Tab 1, and click <strong>Run query</strong>.<br>
+      5. In the response panel, click <strong>Response preview</strong>, press <strong>Ctrl+A</strong> then <strong>Ctrl+C</strong> to copy.<br>
+      6. Paste into the box below and click <strong>Process results</strong>.<br><br>
+      <strong>⚠️ If the response shows your user profile instead of search results</strong>, the method is still set to GET or the URL was not updated — repeat steps 2–4.
+    </div>
+    <label style="font-weight:500;font-size:13px">Paste Graph API response here <span style="color:#c00">*</span></label>
+    <textarea id="paste-area" placeholder='Paste the full JSON response from Graph Explorer here — it should start with {"value":[...' rows="8" style="margin-top:4px;border:1.5px solid #9fa2d3"></textarea>
+    <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:#666">Or upload a saved .txt result file:</span>
+      <input type="file" id="upload-file" accept=".txt,.json" onchange="loadFile()">
+    </div>
+    <div style="margin-top:10px">
+      <label>Label for this search (used in output)</label>
+      <input type="text" id="search-label" placeholder="e.g. 75FCMC23D0004 / 75N98024F00371">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="processResults()">Process results</button>
+      <button class="btn btn-sm" onclick="clearResults()">Clear</button>
+    </div>
+  </div>
+  <div id="result-notice" style="display:none"></div>
+</div>
+
+<div id="panel-output" class="panel">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Results <span id="result-count" style="font-size:12px;color:#888;font-weight:400"></span></h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="exportHTML()">Export .html (open in Excel)</button>
+        <button class="btn btn-sm btn-primary" onclick="exportCSV()">Export .csv</button>
+      </div>
+    </div>
+    <div id="filter-row" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" id="filter-text" placeholder="Filter by site, type, or path…" oninput="renderTable()" style="flex:1;min-width:160px">
+      <select id="filter-type" onchange="renderTable()" style="border:0.5px solid #ccc;border-radius:6px;padding:6px 8px;font-size:13px">
+        <option value="">All types</option>
+        <option value="item">Item</option>
+        <option value="page">Page</option>
+        <option value="file">File</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Label</th>
+            <th>Site</th>
+            <th>Type</th>
+            <th>Filename</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody id="result-tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span id="page-info"></span>
+      <button class="btn btn-sm" id="prev-btn" onclick="changePage(-1)">‹ Prev</button>
+      <button class="btn btn-sm" id="next-btn" onclick="changePage(1)">Next ›</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SITES = [
+  {name:"OA Contract Files",         url:"https://nih.sharepoint.com/sites/OD-OALM-OLAO-OA-ContractFiles*"},
+  {name:"OA Shared Drive",           url:"https://nih.sharepoint.com/sites/OD-OALM-OLAO-OA-SharedDrive*"},
+  {name:"OA Contract Administration",url:"https://nih.sharepoint.com/sites/OD-OALM-OLAO-OAContractAdministration-SharedDrive*"},
+  {name:"CMS/SDA Shared Drive",      url:"https://nih.sharepoint.com/sites/OD-OALM-olao-cmssda-shareddrive*"},
+  {name:"OA Folders",                url:"https://nih.sharepoint.com/sites/OD-OALM-OLAO-OA-Folders*"},
+  {name:"NIEHS OA Shared Drive",     url:"https://nih.sharepoint.com/sites/OD-OALM-NIEHS-OA-SharedDrive*"},
+  {name:"NIAID OA Shared Drive",     url:"https://nih.sharepoint.com/sites/OD-OALM-NIAID-OA-SharedDrive*"},
+  {name:"NICHD OA Shared Drive",     url:"https://nih.sharepoint.com/sites/OD-OALM-NICHD-OA-SharedDrive*"},
+  {name:"CC OA Shared Drive",        url:"https://nih.sharepoint.com/sites/OD-OALM-CC-OA-SharedDrive*"},
+];
+
+let allRows = [];
+let page = 0;
+const PAGE_SIZE = 50;
+let generatedJSON = "";
+
+function buildSiteGrid(){
+  const g = document.getElementById('site-grid');
+  g.innerHTML = SITES.map((s,i)=>`
+    <label class="site-item">
+      <input type="checkbox" class="site-cb" value="${s.url}" checked>
+      <span class="site-label"><span class="site-name">${s.name}</span><br><span class="site-url">${s.url.replace('*','')}</span></span>
+    </label>`).join('');
+}
+
+function setAll(v){
+  document.querySelectorAll('.site-cb').forEach(c=>c.checked=v);
+}
+
+function buildQuery(){
+  const kw = document.getElementById('keywords').value.trim();
+  if(!kw){alert('Please enter at least one keyword.');return;}
+  const op = document.querySelector('input[name=op]:checked').value;
+  const terms = kw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const phrase = terms.map(t=>`"${t}"`).join(` ${op} `);
+  const sites = [...document.querySelectorAll('.site-cb:checked')].map(c=>c.value);
+  const custom = document.getElementById('custom-site').value.trim();
+  if(custom) sites.push(custom.replace(/\*?$/,'*'));
+  if(!sites.length){alert('Select at least one site.');return;}
+  const pathStr = sites.map(s=>`"${s}"`).join(' OR ');
+  const size = parseInt(document.getElementById('size').value)||500;
+  const body = {requests:[{entityTypes:["listItem"],query:{queryString:`${phrase} path:(${pathStr})`},fields:["path"],from:0,size:Math.min(size,500)}]};
+  generatedJSON = JSON.stringify(body,null,2);
+  document.getElementById('json-display').textContent = generatedJSON;
+  document.getElementById('query-output').style.display='block';
+  // auto-fill label
+  if(!document.getElementById('search-label').value)
+    document.getElementById('search-label').value = terms.slice(0,2).join(' / ');
+}
+
+function copyText(text, onSuccess){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(onSuccess).catch(()=>fallbackCopy(text,onSuccess));
+  } else {
+    fallbackCopy(text, onSuccess);
+  }
+}
+function fallbackCopy(text, onSuccess){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try{ document.execCommand('copy'); onSuccess(); }
+  catch(e){ alert('Copy failed — please select the text manually and press Ctrl+C.'); }
+  document.body.removeChild(ta);
+}
+function copyJSON(){
+  copyText(generatedJSON, ()=>{
+    const n = document.getElementById('copy-notice');
+    n.classList.add('show');
+    setTimeout(()=>n.classList.remove('show'),2000);
+  });
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const names=['build','results','output'];
+    t.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function loadFile(){
+  const file = document.getElementById('upload-file').files[0];
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const txt = e.target.result;
+    // try to extract JSON response block
+    const match = txt.match(/RESPONSE:\s*(\{[\s\S]*)/i);
+    document.getElementById('paste-area').value = match ? match[1].trim() : txt;
+  };
+  r.readAsText(file);
+}
+
+function processResults(){
+  const raw = document.getElementById('paste-area').value.trim();
+  if(!raw || raw.length < 10){alert('The response area is empty — please paste the Graph API response from Graph Explorer first, then click Process results.');return;}
+  let data;
+  try{ data = JSON.parse(raw); }
+  catch(e){
+    // try extracting json from a larger text
+    const m = raw.match(/\{[\s\S]*"value"[\s\S]*\}/);
+    if(m) try{ data = JSON.parse(m[0]); } catch(e2){ alert('Could not parse JSON. Make sure you paste the full response body.'); return; }
+    else { alert('Could not parse JSON. Make sure you paste the full response body.'); return; }
+  }
+  const label = document.getElementById('search-label').value || 'Search';
+  const hits = data?.value?.[0]?.hitsContainers?.[0]?.hits || [];
+  const seen = new Set();
+  const rows = [];
+  hits.forEach(h=>{
+    const path = h?.resource?.fields?.path;
+    if(!path || seen.has(path)) return;
+    seen.add(path);
+    const parts = path.split('/');
+    const site = parts[4] || '';
+    const filename = parts[parts.length-1] || '';
+    let type = 'file';
+    if(path.includes('?ID=')) type='item';
+    else if(path.toLowerCase().includes('.aspx')) type='page';
+    rows.push({label, site, type, filename, path});
+  });
+  if(!rows.length){
+    showNotice('warn','No hits found in this response. Check that the JSON contains "hitsContainers".');
+    return;
+  }
+  // merge with existing
+  const before = allRows.length;
+  rows.forEach(r=>{
+    if(!allRows.some(e=>e.path===r.path)) allRows.push(r);
+  });
+  const added = allRows.length - before;
+  showNotice('success',`Processed ${hits.length} hits → ${rows.length} unique paths added (${added} new, ${rows.length-added} duplicates skipped). Total: ${allRows.length}`);
+  page = 0;
+  renderTable();
+  switchTab('output');
+}
+
+function copyNextQuery(btn){
+  const json = document.getElementById('result-notice').dataset.nextJson;
+  copyText(json, ()=>{
+    btn.textContent='Copied!';
+    setTimeout(()=>btn.textContent='Copy JSON',2000);
+  });
+}
+
+function showNotice(type, msg){
+  const el = document.getElementById('result-notice');
+  el.style.display='block';
+  el.innerHTML=`<div class="notice notice-${type}">${msg}</div>`;
+}
+
+function clearResults(){
+  document.getElementById('paste-area').value='';
+  document.getElementById('upload-file').value='';
+  document.getElementById('result-notice').style.display='none';
+}
+
+function renderTable(){
+  const q = document.getElementById('filter-text').value.toLowerCase();
+  const ft = document.getElementById('filter-type').value;
+  const filtered = allRows.filter(r=>{
+    if(ft && r.type!==ft) return false;
+    if(q && !r.path.toLowerCase().includes(q) && !r.site.toLowerCase().includes(q) && !r.label.toLowerCase().includes(q) && !r.filename.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const total = filtered.length;
+  document.getElementById('result-count').textContent = `(${total} rows)`;
+  const start = page * PAGE_SIZE;
+  const slice = filtered.slice(start, start+PAGE_SIZE);
+  const tbody = document.getElementById('result-tbody');
+  tbody.innerHTML = slice.map((r,i)=>`<tr>
+    <td>${start+i+1}</td>
+    <td>${esc(r.label)}</td>
+    <td>${esc(r.site)}</td>
+    <td><span class="badge badge-${r.type}">${r.type}</span></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.filename)}">${esc(r.filename)}</td>
+    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${esc(r.path)}" title="${esc(r.path)}" target="_blank">${esc(r.path)}</a></td>
+  </tr>`).join('');
+  const pages = Math.ceil(total/PAGE_SIZE)||1;
+  document.getElementById('page-info').textContent = `Page ${page+1} of ${pages}`;
+  document.getElementById('prev-btn').disabled = page===0;
+  document.getElementById('next-btn').disabled = page>=pages-1;
+}
+
+function changePage(d){
+  const q = document.getElementById('filter-text').value.toLowerCase();
+  const ft = document.getElementById('filter-type').value;
+  const total = allRows.filter(r=>(ft?r.type===ft:true)&&(!q||(r.path+r.site+r.label).toLowerCase().includes(q))).length;
+  const pages = Math.ceil(total/PAGE_SIZE)||1;
+  page = Math.max(0,Math.min(pages-1,page+d));
+  renderTable();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function exportHTML(){
+  if(!allRows.length){alert('No results yet.');return;}
+  const rows = allRows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${esc(r.site)}</td><td>${esc(r.type)}</td><td>${esc(r.filename)}</td><td>${esc(r.path)}</td></tr>`).join('');
+  const html = `<html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Calibri,sans-serif;font-size:11pt}th,td{border:1px solid #ccc;padding:4px 8px}th{background:#d0d0e8}</style></head><body>
+<table><tr><th>#</th><th>Label / Search phrase</th><th>Site</th><th>Type</th><th>Filename</th><th>Path</th></tr>${rows}</table></body></html>`;
+  download('contract_search_results.html', html, 'text/html');
+}
+
+function exportCSV(){
+  if(!allRows.length){alert('No results yet.');return;}
+  const hdr = ['#','Label','Site','Type','Filename','Path'];
+  const rows = allRows.map((r,i)=>[i+1,r.label,r.site,r.type,r.filename,r.path].map(csvCell).join(','));
+  download('contract_search_results.csv',[hdr.join(','),...rows].join('\r\n'),'text/csv');
+}
+
+function csvCell(v){ const s=String(v); return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s; }
+
+function download(name, content, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = name;
+  a.click();
+}
+
+buildSiteGrid();
+</script>
+</body>
+</html>
