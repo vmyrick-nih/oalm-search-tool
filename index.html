@@ -133,14 +133,15 @@ textarea{resize:vertical;min-height:60px}
   <div class="card">
     <h2>Paste or upload Graph API response</h2>
     <div class="notice notice-info">
-      <strong>Graph Explorer setup (required each time):</strong><br><br>
+      <strong>Graph Explorer setup:</strong><br><br>
       1. Open <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank">Graph Explorer</a> and sign in with your NIH account.<br>
-      2. Change the method dropdown from <strong>GET</strong> to <strong>POST</strong>.<br>
-      3. Set the URL to: <code style="background:#dde;padding:1px 5px;border-radius:3px;font-size:11px">https://graph.microsoft.com/v1.0/search/microsoft.graph.query</code><br>
-      4. Click the <strong>Request body</strong> tab, paste the query JSON from Tab 1, and click <strong>Run query</strong>.<br>
-      5. In the response panel, click <strong>Response preview</strong>, press <strong>Ctrl+A</strong> then <strong>Ctrl+C</strong> to copy.<br>
-      6. Paste into the box below and click <strong>Process results</strong>.<br><br>
-      <strong>⚠️ If the response shows your user profile instead of search results</strong>, the method is still set to GET or the URL was not updated — repeat steps 2–4.
+      2. Click the <strong>Request body</strong> tab and paste the query JSON copied from Tab 1.<br>
+      3. Change the method dropdown from <strong>GET</strong> to <strong>POST</strong>.<br>
+      4. Set the URL to: <code style="background:#dde;padding:1px 5px;border-radius:3px;font-size:11px">https://graph.microsoft.com/v1.0/search/microsoft.graph.query</code><br>
+      5. Click <strong>Run query</strong>.<br>
+      6. In the response panel, click <strong>Response preview</strong>, press <strong>Ctrl+A</strong> then <strong>Ctrl+C</strong> to copy.<br>
+      7. Paste into the box below and click <strong>Process results</strong>.<br><br>
+      <strong>⚠️ If the response shows your user profile instead of search results</strong>, the method is still set to GET or the URL was not updated — repeat steps 3–5.
     </div>
     <label style="font-weight:500;font-size:13px">Paste Graph API response here <span style="color:#c00">*</span></label>
     <textarea id="paste-area" placeholder='Paste the full JSON response from Graph Explorer here — it should start with {"value":[...' rows="8" style="margin-top:4px;border:1.5px solid #9fa2d3"></textarea>
