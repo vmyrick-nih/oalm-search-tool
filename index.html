@@ -245,7 +245,7 @@ function buildQuery(){
   if(!sites.length){alert('Select at least one site.');return;}
   const pathStr = sites.map(s=>`"${s}"`).join(' OR ');
   const size = parseInt(document.getElementById('size').value)||500;
-  const body = {requests:[{entityTypes:["listItem"],query:{queryString:`${phrase} path:(${pathStr})`},fields:["path"],from:0,size:Math.min(size,500)}]};
+  const body = {requests:[{entityTypes:["listItem"],query:{queryString:`${phrase} path:(${pathStr})`},fields:["path","indexDocId"],from:0,size:Math.min(size,500),trimDuplicates:true}]};
   generatedJSON = JSON.stringify(body,null,2);
   document.getElementById('json-display').textContent = generatedJSON;
   document.getElementById('query-output').style.display='block';
