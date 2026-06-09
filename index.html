@@ -262,7 +262,7 @@ function buildQuery(){
   if(!sites.length){alert('Select at least one site.');return;}
   const pathStr = sites.map(s=>`"${s}"`).join(' OR ');
   const size = parseInt(document.getElementById('size').value)||500;
-  const body = {requests:[{entityTypes:["listItem"],query:{queryString:`${phrase} path:(${pathStr})`},fields:["path","indexDocId"],from:0,size:Math.min(size,500),trimDuplicates:true}]};
+  const body = {requests:[{entityTypes:["listItem"],query:{queryString:`${phrase} path:(${pathStr}) indexDocId>0`},fields:["path","indexDocId"],from:0,size:Math.min(size,500)}]};
   generatedJSON = JSON.stringify(body,null,2);
   document.getElementById('json-display').textContent = generatedJSON;
   document.getElementById('query-output').style.display='block';
@@ -351,10 +351,87 @@ function processResults(){
     if(!allRows.some(e=>e.path===r.path)) allRows.push(r);
   });
   const added = allRows.length - before;
-  showNotice('success',`Processed ${hits.length} hits → ${rows.length} unique paths added (${added} new, ${rows.length-added} duplicates skipped). Total: ${allRows.length}`);
+
+  // Check if pagination is needed
+  const container = data?.value?.[0]?.hitsContainers?.[0];
+  const total = container?.total || 0;
+  const moreAvailable = container?.moreResultsAvailable === true;
+  // indexDocId values exceed JS safe integer range — extract last one directly from raw JSON text
+  let lastDocId = null;
+  const allDocIdMatches = [...raw.matchAll(/"indexDocId"\s*:\s*(\d+)/g)];
+  if(allDocIdMatches.length > 0){
+    lastDocId = allDocIdMatches[allDocIdMatches.length - 1][1];
+  }
+  console.log('Total indexDocId matches found:', allDocIdMatches.length);
+  console.log('lastDocId (raw string):', lastDocId);
+  // Show all last 3 for comparison
+  allDocIdMatches.slice(-3).forEach((m,i)=>console.log(`docId[-${3-i}]:`, m[1]));
+
+  let nextJSON = null;
+  if(moreAvailable && lastDocId != null){
+    try{
+      // Use generatedJSON if available, otherwise reconstruct from the raw response's query
+      let baseBody = generatedJSON
+        ? JSON.parse(generatedJSON)
+        : {requests:[{entityTypes:["listItem"],query:{queryString:""},fields:["path","indexDocId"],from:0,size:500,trimDuplicates:true}]};
+      // If no generatedJSON, pull queryString from the searchTerms in the response
+      if(!generatedJSON){
+        const terms = data?.value?.[0]?.searchTerms || [];
+        if(terms.length) baseBody.requests[0].query.queryString = terms.map(t=>`"${t}"`).join(' OR ');
+      }
+      const req = baseBody.requests[0];
+      // Replace indexDocId>X in the queryString with the new value — exactly as done manually
+      req.query.queryString = req.query.queryString.replace(/\s*indexDocId>\S+/g,'') + ` indexDocId>${lastDocId}`;
+      // Remove any extra properties not needed for pagination
+      delete req.trimDuplicates;
+      delete req.sortProperties;
+      req.fields = ["path","indexDocId"];
+      req.from = 0;
+      req.size = 500;
+      nextJSON = JSON.stringify(baseBody, null, 2);
+      console.log('Next queryString:', req.query.queryString);
+      console.log('Full next body:', nextJSON);
+    } catch(e){ console.error('pagination build error',e); }
+  }
+
   page = 0;
   renderTable();
-  switchTab('output');
+
+  if(moreAvailable){
+    // Always stay on Tab 2 when more results exist
+    const msg = nextJSON
+      ? `<strong>⚠️ More results available</strong> — processed ${hits.length} hits (${added} new added, ${allRows.length} total so far). `+
+        `${total.toLocaleString()} total hits in SharePoint.<br><br>`+
+        `<strong>To get the next batch:</strong><br>`+
+        `<ol style="margin:6px 0 8px 18px;padding:0;line-height:1.8">`+
+        `<li>Click <strong>Copy next query JSON</strong> below.</li>`+
+        `<li>Go back to Graph Explorer and paste it into the <strong>Request body</strong> tab (replacing the previous query).</li>`+
+        `<li>Click <strong>Run query</strong>.</li>`+
+        `<li>Copy the full response (Ctrl+A, Ctrl+C in the Response preview panel).</li>`+
+        `<li>Paste it into the box below and click <strong>Process results</strong> again.</li>`+
+        `<li>Repeat until no more results are available.</li>`+
+        `</ol>`+
+        `<strong>⚠️ Do not reload this page</strong> — your accumulated results will be lost.<br><br>`+
+        `Last <code>indexDocId</code>: <code>${lastDocId}</code><br><br>`+
+        `<button class="btn btn-sm btn-primary" id="next-query-btn">Copy next query JSON</button> `+
+        `<button class="btn btn-sm" style="margin-left:8px" onclick="switchTab('output')">View results so far (${allRows.length})</button>`
+      : `<strong>⚠️ More results available</strong> but could not build next query — go back to Tab 1, regenerate the query JSON, then return here and paste the next response with <code>indexDocId&gt;${lastDocId}</code> appended to your queryString.`;
+    showNotice('warn', msg);
+    if(nextJSON){
+      document.getElementById('next-query-btn').addEventListener('click', function(){
+        copyText(nextJSON, ()=>{
+          this.textContent='Copied!';
+          setTimeout(()=>this.textContent='Copy next query JSON', 2000);
+        });
+      });
+    }
+    // Clear paste area ready for next batch
+    document.getElementById('paste-area').value = '';
+    document.getElementById('upload-file').value = '';
+  } else {
+    showNotice('success',`Done. Processed ${hits.length} hits → ${added} new unique paths added (${rows.length-added} duplicates skipped). Grand total: ${allRows.length} unique paths.`);
+    switchTab('output');
+  }
 }
 
 function showNotice(type, msg){
